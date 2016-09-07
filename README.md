@@ -10,7 +10,7 @@ The script is intended for people who build large storage servers used in an
 environment (at home) where noise matters.
 
 The hard drive temperature is monitored through either SMART or the MegaCLI 
-tool used by LSI-based HBA controllers. 
+tool used by LSI-based HBA controllers or HDPARM -H (Meant for HGST HDDs). 
 
 Fan speed is governed by PWM fan controls and sensors as supported by
 Linux under /sys/class/hwmon, such as /sys/class/hwmon/hwmon2/device/pwm2.
@@ -49,8 +49,10 @@ This will give you output on the console:
     export DEBUG=True 
 
 The disk temperature is read through 'smartctl' (part of smartmontools).
-Temperature can also be read through LSI-based HBAs managed by MegaCLI.
-You must edit the __main__ function to switch between these two options.
+Temperature can also be read through LSI-based HBAs managed by MegaCLI 
+or using 'hdparm -H' (meant only for HGST HDDs which would output only the temperature
+without the risk of waking the HDDs )
+You must edit the __main__ function to switch between these three options.
 
 The script performs a poll every 30 seconds by default. 
 
