@@ -5,8 +5,8 @@ polling_interval = 30
 # Temperature in Celcius.
 target_temperature = 38
 
-# Mode can be 'smart' or 'controller'
-mode = controller
+# Mode can be 'smart' or 'controller' or 'hdparm'
+mode = hdparm
 
 [Pid]
 # The values in this section are tuned for the author's system.
@@ -65,6 +65,13 @@ device_filter = "sd"
 # How many instances of 'smartctl' are run in parallel when polling for
 # the hard drive temperature.
 smart_workers = 30
+
+[Hdparm]
+# We only look at the temperature of hard drives we care about.
+device_filter = "sd"
+# How many instances of 'smartctl' are run in parallel when polling for
+# the hard drive temperature.
+hdparm_workers = 30
 
 [Controller]
 megacli = /opt/MegaRAID/MegaCli/megacli
