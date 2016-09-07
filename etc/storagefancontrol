@@ -69,7 +69,7 @@ smart_workers = 30
 [Hdparm]
 # We only look at the temperature of hard drives we care about.
 device_filter = "sd"
-# How many instances of 'smartctl' are run in parallel when polling for
+# How many instances of 'hdparm -H' are run in parallel when polling for
 # the hard drive temperature.
 hdparm_workers = 30
 
