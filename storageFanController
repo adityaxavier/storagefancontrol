@@ -199,6 +199,7 @@ class Smart:
         """
         Init.
         """
+        debug_log("SMART")
         self.block_devices = ""
         self.device_filter = "sd"
         self.highest_temperature = 0
@@ -289,6 +290,7 @@ class Smart:
         smart_data = self.get_smart_data(device)
         temperature = int(self.get_parameter_from_smart(smart_data, \
                                             'Temperature_Celsius', 10))
+        dev_log(device, temperature)
         return temperature
 
     def get_highest_temperature(self):
@@ -309,7 +311,7 @@ class Smart:
 
         return self.highest_temperature
 
-class Hdparm:
+class hdparm:
     """
     Reading temperature data using hdparm util.
     """
@@ -318,6 +320,7 @@ class Hdparm:
         """
         Init.
         """
+	debug_log("Starting HDPARM")
         self.block_devices = ""
         self.device_filter = "sd"
         self.highest_temperature = 0
@@ -355,7 +358,7 @@ class Hdparm:
         device = "/dev/" + device
 
         try:
-            child = subprocess.Popen(['hdparm',  '-H', \
+            child = subprocess.Popen(['hdparm',  '-H ', \
                                     device], stdout=subprocess.PIPE, \
                                      stderr=subprocess.PIPE)
         except OSError:
@@ -366,7 +369,7 @@ class Hdparm:
         rawdata = child.communicate()
 
         if child.returncode:
-            child = subprocess.Popen(['hdparm',  '-H',  device],
+            child = subprocess.Popen(['hdparm',  '-H ',  device],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
             rawdata = child.communicate()
@@ -395,7 +398,7 @@ class Hdparm:
         """
         hdparm_data = self.get_hdparm_data(device)
         temperature = self.get_parameter_from_hdparm(hdparm_data)
-	print "Temp found : %d" % temperature
+        dev_log(device, temperature)
 	return temperature
 
     def get_highest_temperature(self):
@@ -406,6 +409,114 @@ class Hdparm:
         """
         highest_temperature = 0
         pool = mp.Pool(processes=int(self.hdparm_workers))
+        results = pool.map(self.get_temperature, self.block_devices)
+        pool.close()
+
+        for temperature in results:
+            if temperature > highest_temperature:
+                highest_temperature = temperature
+        self.highest_temperature = highest_temperature
+
+        return self.highest_temperature
+
+class hddtemp:
+    """
+    Reading temperature data using hddtemp util.
+    """
+
+    def __init__(self):
+        """
+        Init.
+        """
+        debug_log("Starting HDDTEMP")
+        self.block_devices = ""
+        self.device_filter = "sd"
+        self.highest_temperature = 0
+        self.get_block_devices()
+        self.hdtemp_workers = 24
+
+    def filter_block_devices(self, block_devices):
+        """
+        Filter out devices like 'loop, ram'.
+        """
+        devices = []
+        for device in block_devices:
+            if not device.find(self.device_filter):
+                devices.append(device)
+        return devices
+
+    def get_block_devices(self):
+        """
+        Retrieve the list of block devices.
+        By default only lists /dev/sd* devices.
+        Configure the appropriate device filter with
+        setting <object>.device_filter to some other value.
+        """
+        devicepath = "/sys/block"
+        block_devices = os.listdir(devicepath)
+        block_devices.sort()
+        self.block_devices = self.filter_block_devices(block_devices)
+
+    def get_hddtemp_data(self, device):
+        """
+        Call the hdparm command line utilily on a device to get the raw
+        smart data output.
+        """
+
+        device = "/dev/" + device
+
+        try:
+            child = subprocess.Popen(['hddtemp',  ' ', \
+                                    device], stdout=subprocess.PIPE, \
+                                     stderr=subprocess.PIPE)
+        except OSError:
+            print "Executing hddtemp gave an error,"
+            print "is hddtemp installed?"
+            sys.exit(1)
+
+        rawdata = child.communicate()
+
+        if child.returncode:
+            child = subprocess.Popen(['hddtemp',  device], \
+                                     stdout=subprocess.PIPE, \
+                                     stderr=subprocess.PIPE)
+            rawdata = child.communicate()
+            if child.returncode == 1:
+                return ""
+
+        smartdata = rawdata[0]
+        return smartdata
+
+    def get_parameter_from_hddtemp(self, data):
+        """
+        Retrieves the desired value from the raw hdparm data.
+        """
+        
+        try:
+	    value = int(data.split(" ")[3])
+	    return value
+        except:
+	    debug_log("Error retrieving values from HDDTEMP")
+            return 0
+        return 0
+
+    def get_temperature(self, device):
+        """
+        Get the current temperature of a block device.
+        """
+        hddtemp_data = self.get_hddtemp_data(device)
+        temperature = self.get_parameter_from_hddtemp(hddtemp_data)
+        dev_log(device, temperature)
+	return temperature
+
+    def get_highest_temperature(self):
+        """
+        Get the highest temperature of all the block devices in the system.
+        Because retrieving hdparm data is slow, multiprocessing is used
+        to collect hdparm data in parallel from multiple devices.
+        """
+        highest_temperature = 0
+        pool = mp.Pool(processes=int(self.hddtemp_workers))
         results = pool.map(self.get_temperature, self.block_devices)
         pool.close()
 
@@ -626,6 +737,37 @@ def log(temperature, chassis, pid):
     if is_debug_enabled():
         print msg
 
+def dev_log(device, temperature):
+    """
+    Logging to syslog and terminal (export DEBUG=True).
+    """
+
+    TMP = str(temperature)
+    DEV = str(device)
+
+    all_vars = [DEV, TMP]
+    formatstring = "Device: {:2} | Temp: {:2}"
+
+    msg = formatstring.format(*all_vars)
+
+    syslog.openlog("SFC")
+    syslog.syslog(msg)
+
+    if is_debug_enabled():
+        print msg
+        
+def debug_log(stringValue):
+    """
+    Logging to syslog and terminal (export DEBUG=True).
+    """
+
+    STR = str(stringValue)
+    syslog.openlog("SFC")
+    syslog.syslog(STR)
+
+    if is_debug_enabled():
+        print msg
+
 def read_config():
     """ Main"""
     config_file = "/etc/storagefancontrol"
@@ -661,9 +803,15 @@ def get_temp_source(config):
         return temp_source
 
     if mode == "hdparm":
-        temp_source = Hdparm()
-        temp_source.device_filter = config.get("Hdparm", "device_filter")
-        temp_source.hdparm_workers = config.getint("Hdparm", "hdparm_workers")
+        temp_source = hdparm()
+        temp_source.device_filter = config.get("hdparm", "device_filter")
+        temp_source.hdparm_workers = config.getint("hdparm", "hdparm_workers")
+        return temp_source
+
+    if mode == "hddtemp":
+        temp_source = hddtemp()
+        temp_source.device_filter = config.get("hddtemp", "device_filter")
+        temp_source.hddtemp_workers = config.getint("hddtemp", "hddtemp_workers")
         return temp_source
 
     if mode == "controller":
@@ -672,7 +820,7 @@ def get_temp_source(config):
         temp_source.ports_per_controller = config.getint("Controller", \
                                          "ports_per_controller")
         return temp_source
-
+	
     print "Mode not set, check config. %s " % mode
     sys.exit(1)
 
