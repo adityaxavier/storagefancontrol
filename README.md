@@ -51,7 +51,7 @@ This will give you output on the console:
 The disk temperature is read through 'smartctl' (part of smartmontools).
 Temperature can also be read through LSI-based HBAs managed by MegaCLI 
 or using 'hdparm -H' (meant only for HGST HDDs which would output only the temperature
-without the risk of waking the HDDs )
+without the risk of waking the HDDs ) or using 'hddtemp' (meant for all HDDs)
 You must edit the __main__ function to switch between these three options.
 
 The script performs a poll every 30 seconds by default. 
