@@ -25,114 +25,116 @@ class daemon:
 
     def daemonize(self):
         """Deamonize class. UNIX double fork mechanism."""
-	try: 
-	    pid = os.fork() 
-	    if pid > 0:
+        try: 
+            pid = os.fork() 
+            if pid > 0:
                 # exit first parent
-		sys.exit(0) 
-	except OSError as err: 
-	    sys.stderr.write('fork #1 failed: {0}\n'.format(err))
+                sys.exit(0) 
+        except OSError as err: 
+            sys.stderr.write('fork #1 failed: {0}\n'.format(err))
             sys.exit(1)
-	
-	# decouple from parent environment
-	os.chdir('/') 
-	os.setsid() 
-	os.umask(0) 
-	
-	# do second fork
-	try: 
-	    pid = os.fork() 
-	    if pid > 0:
-	        # exit from second parent
-		sys.exit(0) 
-	except OSError as err: 
-	    sys.stderr.write('fork #2 failed: {0}\n'.format(err))
-	    sys.exit(1) 
-	
-	# redirect standard file descriptors
-	sys.stdout.flush()
-	sys.stderr.flush()
-	si = open(os.devnull, 'r')
-	so = open(os.devnull, 'a+')
-	se = open(os.devnull, 'a+')
+    
+        # decouple from parent environment
+        os.chdir('/') 
+        os.setsid() 
+        os.umask(0) 
+    
+        # do second fork
+        try: 
+            pid = os.fork() 
+            if pid > 0:
+                # exit from second parent
+                sys.exit(0) 
+        except OSError as err: 
+            sys.stderr.write('fork #2 failed: {0}\n'.format(err))
+            sys.exit(1) 
+    
+        # redirect standard file descriptors
+        sys.stdout.flush()
+        sys.stderr.flush()
+        si = open(os.devnull, 'r')
+        so = open(os.devnull, 'a+')
+        se = open(os.devnull, 'a+')
 
-	os.dup2(si.fileno(), sys.stdin.fileno())
-	os.dup2(so.fileno(), sys.stdout.fileno())
-	os.dup2(se.fileno(), sys.stderr.fileno())
-	
-	# write pidfile
-	atexit.register(self.delpid)
+        os.dup2(si.fileno(), sys.stdin.fileno())
+        os.dup2(so.fileno(), sys.stdout.fileno())
+        os.dup2(se.fileno(), sys.stderr.fileno())
+    
+        # write pidfile
+        atexit.register(self.delpid)
 
-	pid = str(os.getpid())
-	with open(self.pidfile,'w+') as f:
-	    f.write(pid + '\n')
-	
+        pid = str(os.getpid())
+        with open(self.pidfile,'w+') as f:
+            f.write(pid + '\n')
+    
     def delpid(self):
-	os.remove(self.pidfile)
+        os.remove(self.pidfile)
 
     def start(self):
-	"""Start the daemon."""
-	# Check for a pidfile to see if the daemon already runs
-	try:
-	    with open(self.pidfile,'r') as pf:
-		pid = int(pf.read().strip())
-	except IOError:
-	    pid = None
-	
-	if pid:
-	    message = "pidfile {0} already exist. " + \
-	        "Daemon already running?\n"
-	    sys.stderr.write(message.format(self.pidfile))
-	    sys.exit(1)
-		
+        """Start the daemon."""
+        # Check for a pidfile to see if the daemon already runs
+        try:
+            with open(self.pidfile,'r') as pf:
+                pid = int(pf.read().strip())
+        except IOError:
+            pid = None
+    
+        if pid:
+            message = "pidfile {0} already exist. " + \
+            "Daemon already running?\n"
+            sys.stderr.write(message.format(self.pidfile))
+            sys.exit(1)
+        
         # Start the daemon
-	self.daemonize()
-	self.run()
+        self.daemonize()
+        self.run()
 
     def stop(self):
-	"""Stop the daemon."""
+        """Stop the daemon."""
 
-	# Get the pid from the pidfile
-	try:
-	    with open(self.pidfile,'r') as pf:
-	        pid = int(pf.read().strip())
-	except IOError:
-	    pid = None
-	
-	if not pid:
-	    message = "pidfile {0} does not exist. " + \
-	        "Daemon not running?\n"
-	    sys.stderr.write(message.format(self.pidfile))
-	    return # not an error in a restart
+        # Get the pid from the pidfile
+        try:
+            with open(self.pidfile,'r') as pf:
+                pid = int(pf.read().strip())
+        except IOError:
+            pid = None
+    
+        if not pid:
+            message = "pidfile {0} does not exist. " + \
+                "Daemon not running?\n"
+            sys.stderr.write(message.format(self.pidfile))
+            return # not an error in a restart
 
-	# Try killing the daemon process	
-	try:
-	    while 1:
-		os.kill(pid, signal.SIGTERM)
-		time.sleep(0.1)
-	except OSError as err:
-	    e = str(err.args)
-	    if e.find("No such process") > 0:
-	        if os.path.exists(self.pidfile):
-		    os.remove(self.pidfile)
-	    else:
-                print (str(err.args))
-		sys.exit(1)
+        # Try killing the daemon process    
+        try:
+            while 1:
+                os.kill(pid, signal.SIGTERM)
+                time.sleep(0.1)
+        except OSError as err:
+            e = str(err.args)
+            if e.find("No such process") > 0:
+                if os.path.exists(self.pidfile):
+                    os.remove(self.pidfile)
+                else:
+                    print (str(err.args))
+                    sys.exit(1)
 
     def restart(self):
-	"""Restart the daemon."""
-	self.stop()
-	self.start()
+        """Restart the daemon."""
+        self.stop()
+        self.start()
 
     def run(self):
-	main()
+        main()
 
-def _reduce_method(meth):
-    """
-    This is a hack to work around the fact that multiprocessing
-    can't operate on class methods by default.
-    """
-    return (getattr, (meth.__self__, meth.__func__.__name__))
+    def _reduce_method(meth):
+        """
+        This is a hack to work around the fact that multiprocessing
+        can't operate on class methods by default.
+        """
+        return (getattr, (meth.__self__, meth.__func__.__name__))
+
+    copy_reg.pickle(types.MethodType, _reduce_method)
 
 class PID:
     """
@@ -188,7 +190,6 @@ class PID:
         """
         self.set_point = set_point
 
-copy_reg.pickle(types.MethodType, _reduce_method)
 class Smart:
     """
     Uses SMART data from storage devices to determine the temperature
@@ -320,7 +321,7 @@ class hdparm:
         """
         Init.
         """
-	debug_log("Starting HDPARM")
+        debug_log("Starting HDPARM")
         self.block_devices = ""
         self.device_filter = "sd"
         self.highest_temperature = 0
@@ -354,7 +355,6 @@ class hdparm:
         Call the hdparm command line utilily on a device to get the raw
         smart data output.
         """
-
         device = "/dev/" + device
 
         try:
@@ -386,8 +386,8 @@ class hdparm:
         
         try:
             str = data.splitlines()[2]
-	    value = int(str.split("  ")[1])
-	    return value
+            value = int(str.split("  ")[1])
+            return value
         except:
             return 0
         return 0
@@ -399,7 +399,7 @@ class hdparm:
         hdparm_data = self.get_hdparm_data(device)
         temperature = self.get_parameter_from_hdparm(hdparm_data)
         dev_log(device, temperature)
-	return temperature
+        return temperature
 
     def get_highest_temperature(self):
         """
@@ -423,7 +423,6 @@ class hddtemp:
     """
     Reading temperature data using hddtemp util.
     """
-
     def __init__(self):
         """
         Init.
@@ -491,12 +490,11 @@ class hddtemp:
         """
         Retrieves the desired value from the raw hdparm data.
         """
-        
         try:
-	    value = int(data.split(" ")[3])
-	    return value
+            value = int(data.split(" ")[3])
+            return value
         except:
-	    debug_log("Error retrieving values from HDDTEMP")
+            debug_log("Error retrieving values from HDDTEMP")
             return 0
         return 0
 
@@ -507,7 +505,7 @@ class hddtemp:
         hddtemp_data = self.get_hddtemp_data(device)
         temperature = self.get_parameter_from_hddtemp(hddtemp_data)
         dev_log(device, temperature)
-	return temperature
+        return temperature
 
     def get_highest_temperature(self):
         """
@@ -660,7 +658,6 @@ class FanControl:
         self.enable_fan_control()
 
         for device in self.fan_control_device:
-
             filename = device
             pwm_max = self.pwm_max
             pwm_min = self.pwm_min
@@ -820,7 +817,7 @@ def get_temp_source(config):
         temp_source.ports_per_controller = config.getint("Controller", \
                                          "ports_per_controller")
         return temp_source
-	
+    
     print "Mode not set, check config. %s " % mode
     sys.exit(1)
 
