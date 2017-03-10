@@ -2,7 +2,7 @@
 """
 This program controls the chassis fan speed through PWM based on the temperature
 of the hottest hard drive in the chassis. It uses the IBM M1015 or LSI tool
-'MegaCli' for reading hard drive temperatures.
+'MegaCli' or smartctl or hddtemp or hdparm for reading hard drive temperatures.
 """
 import os
 import sys
@@ -20,7 +20,6 @@ import signal
 class daemon:
     """A generic daemon class.
     Usage: subclass the daemon class and override the run() method."""
-
     def __init__(self, pidfile): self.pidfile = pidfile
 
     def daemonize(self):
@@ -143,7 +142,6 @@ class PID:
     This class calculates the appropriate fan speed based on the difference
     between the current temperature and the desired (target) temperature.
     """
-
     def __init__(self, P, I, D, Derivator, Integrator, \
                 Integrator_max, Integrator_min):
         """
@@ -195,7 +193,6 @@ class Smart:
     Uses SMART data from storage devices to determine the temperature
     of the hottest drive.
     """
-
     def __init__(self):
         """
         Init.
@@ -316,7 +313,6 @@ class hdparm:
     """
     Reading temperature data using hdparm util.
     """
-
     def __init__(self):
         """
         Init.
@@ -619,7 +615,6 @@ class FanControl:
     2. Get the current fan speed
     3. Set the fan speed
     """
-
     def __init__(self):
         """
         Generic init method.
@@ -725,12 +720,10 @@ def log(temperature, chassis, pid):
     all_vars = [TMP, PCT, PWM, P, I, D, E]
     formatstring = "Temp: {:2} | FAN: {:2}% | PWM: {:3} | P={:3} | I={:3} | "\
                    "D={:3} | Err={:3}|"
-
+        
     msg = formatstring.format(*all_vars)
-
     syslog.openlog("SFC")
     syslog.syslog(msg)
-
     if is_debug_enabled():
         print msg
 
@@ -738,7 +731,6 @@ def dev_log(device, temperature):
     """
     Logging to syslog and terminal (export DEBUG=True).
     """
-
     TMP = str(temperature)
     DEV = str(device)
 
@@ -746,10 +738,8 @@ def dev_log(device, temperature):
     formatstring = "Device: {:2} | Temp: {:2}"
 
     msg = formatstring.format(*all_vars)
-
     syslog.openlog("SFC")
     syslog.syslog(msg)
-
     if is_debug_enabled():
         print msg
         
@@ -757,11 +747,9 @@ def debug_log(stringValue):
     """
     Logging to syslog and terminal (export DEBUG=True).
     """
-
     STR = str(stringValue)
     syslog.openlog("SFC")
     syslog.syslog(STR)
-
     if is_debug_enabled():
         print msg
 
@@ -790,7 +778,6 @@ def get_pid_settings(config):
 
 def get_temp_source(config):
     """ Configure temperature source."""
-
     mode = config.get("General", "mode")
 
     if mode == "smart":
@@ -823,7 +810,6 @@ def get_temp_source(config):
 
 def get_chassis_settings(config):
     """ Initialise chassis fan settings. """
-
     chassis = FanControl()
     chassis.pwm_min = config.getint("Chassis", "pwm_min")
     chassis.pwm_max = config.getint("Chassis", "pwm_max")
